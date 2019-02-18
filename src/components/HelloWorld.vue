@@ -1,33 +1,10 @@
 <template>
   <div class="hello">
-    <h1>{{ msg }}</h1>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br>
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener">vue-cli documentation</a>.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel" target="_blank" rel="noopener">babel</a></li>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-pwa" target="_blank" rel="noopener">pwa</a></li>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-eslint" target="_blank" rel="noopener">eslint</a></li>
-    </ul>
-    <h3>Essential Links</h3>
-    <ul>
-      <li><a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a></li>
-      <li><a href="https://forum.vuejs.org" target="_blank" rel="noopener">Forum</a></li>
-      <li><a href="https://chat.vuejs.org" target="_blank" rel="noopener">Community Chat</a></li>
-      <li><a href="https://twitter.com/vuejs" target="_blank" rel="noopener">Twitter</a></li>
-      <li><a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a></li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li><a href="https://router.vuejs.org" target="_blank" rel="noopener">vue-router</a></li>
-      <li><a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a></li>
-      <li><a href="https://github.com/vuejs/vue-devtools#vue-devtools" target="_blank" rel="noopener">vue-devtools</a></li>
-      <li><a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener">vue-loader</a></li>
-      <li><a href="https://github.com/vuejs/awesome-vue" target="_blank" rel="noopener">awesome-vue</a></li>
-    </ul>
+    <div v-if="isOnline"><div class="indicator online"></div> Yeah! page is online</div>
+    <div v-if="!isOnline"><div class="indicator offline"></div> Page is not online :(</div>
+    <button @click="fetchPokemon()">Fetch Pokemon</button>
+    <div>{{pokemon.name}}</div>
+    <button @click="createGist()">Create Gist</button>
   </div>
 </template>
 
@@ -37,10 +14,77 @@ export default {
   props: {
     msg: String,
   },
+  data () {
+    return {
+      pokemon: {},
+      isOnline: false
+    };
+  },
+  methods: {
+    async fetchPokemon () {
+      this.pokemon = {};
+      let response = await fetch('https://pokeapi.co/api/v2/pokemon/' + (Math.floor(Math.random() * 150) + 1), {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      let result = await response.json();
+      this.pokemon = result;
+    },
+    handleGistResponse (status) {
+      alert('Yeah, this is an ugly browser alert popup. The status code was ' + status);
+    },
+    async createGist () {
+      try {
+        // will respond unauthorized sinse there are no attached credentials
+        let response = await fetch('https://api.github.com/gists', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            description: 'Fetch API Post example',
+            public: true,
+            files: {
+              "test.js": {
+                content: '// Enter some JavaScript here\n// e.g\nhello world'
+              }
+            }
+          })
+        });
+        this.handleGistResponse(response.status);
+      } catch (error) {
+        alert('[ERROR]: ' + error.message);
+      }
+    },
+    checkNetworkStatus () {
+      this.isOnline = navigator.onLine;
+    },
+    serviceWorkerResponse (event) {
+      const message = event.data;
+      if (message.name === 'queueDidReplay') {
+        message.transactions.forEach(({url, status, body}) => {
+          if (url === 'https://api.github.com/gists') {
+            this.handleGistResponse(status);
+          }
+        })
+      }
+    },
+  },
+  mounted () {
+    window.addEventListener('online', this.checkNetworkStatus);
+    window.addEventListener('offline', this.checkNetworkStatus);
+    navigator.serviceWorker.addEventListener('message', this.serviceWorkerResponse);
+    this.checkNetworkStatus();
+  },
+  beforeDestroy () {
+    window.removeEventListener('online', this.checkNetworkStatus);
+    window.removeEventListener('offline', this.checkNetworkStatus);
+    navigator.serviceWorker.removeEventListener('message', this.serviceWorkerResponse);
+  }
 };
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
 h3 {
   margin: 40px 0 0;
@@ -55,5 +99,17 @@ li {
 }
 a {
   color: #42b983;
+}
+.indicator {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 100%;
+}
+.online {
+  background-color: green;
+}
+.offline {
+  background-color: red;
 }
 </style>
